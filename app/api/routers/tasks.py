@@ -4,7 +4,7 @@ from datetime import date
 from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Response, status
 from app.api.dependencies import UsuarioAtual, obter_tarefa_servico
-from app.models.enums import PrioridadeTafera, StatusTarefa
+from app.models.enums import CampoOrdenacao, Ordem, PrioridadeTafera, StatusTarefa
 from app.repositories import FiltroDeTarefas
 from app.schemas import TarefaCreate, TarefaOut, TarefaUpdate
 from app.services import AlteracoesDaTarefa, TarefaServico
@@ -26,6 +26,7 @@ def _montar_alteracoes(dados: TarefaUpdate) -> AlteracoesDaTarefa:
     distinguir "nao mencionei o prazo" de "quero apagar o prazo".
     """
     return AlteracoesDaTarefa(**dados.model_dump(exclude_unset=True))
+
 @router.post(
     "",
     response_model=TarefaOut,
@@ -38,13 +39,15 @@ def criar_task(dados: TarefaCreate, usuario: UsuarioAtual, servico: Servico) -> 
         usuario_id=usuario.id,
         titulo=dados.titulo,
         prioridade=dados.prioridade,
-        prazo=dados.prazo
+        prazo=dados.prazo,
     )
+
 @router.get(
     "",
     response_model=list[TarefaOut],
     summary="Listar tarefas do usuário logado"
 )
+
 def listar_tasks(
     usuario: UsuarioAtual,
     servico: Servico,
@@ -59,6 +62,12 @@ def listar_tasks(
         str | None,
         Query(max_length=200, description="Texto contido no título (sem diferenciar maiúsculas)"),
     ] = None,
+    ordenar_por: Annotated[
+        CampoOrdenacao, Query(alias="ordenarPor")
+    ] = CampoOrdenacao.CRIADO_EM,
+    ordem: Annotated [Ordem, Query()] = Ordem.DESC,
+    limite: Annotated [int, Query(ge=1, le=1000, alias="limit")] = 100,
+    deslocamento: Annotated[int, Query(ge=0, alias="offset")] = 0,
 ) -> list[TarefaOut]:
     """Lista as tarefas do usuário logado, com filtros opcionais."""
     filtro = FiltroDeTarefas(
@@ -67,10 +76,14 @@ def listar_tasks(
         prioridade=prioridade,
         prazo_ate=prazo_ate,
         busca=(busca or "").strip() or None,
+        ordena_por=ordenar_por,
+        ordem=ordem,
+        limite=limite,
+        deslocamento=deslocamento,
     )
-    tarefas = servico.listar(filtro)
-    response.headers["X-Total-Count"] = str(len(tarefas))
-    return tarefas
+    pagina = servico.listar(filtro)
+    response.headers["X-Total-Count"] = str(len(pagina))
+    return pagina
 @router.get(
     "/{tarefa_id}",
     response_model=TarefaOut,

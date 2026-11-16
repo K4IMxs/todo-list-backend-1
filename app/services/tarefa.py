@@ -10,8 +10,11 @@ from typing import Any
 from app.core.exceptions import AcessoNaoAutorizado, TarefaNaoEncontrada
 from app.models import Tarefa
 from app.models.enums import PrioridadeTafera, StatusTarefa
-from app.repositories import FiltroDeTarefas, TarefaRepositorio
+from app.repositories import FiltroDeTarefas, PaginaDeTarefa, TarefaRepositorio
 
+# Sentinela para distinguir "campo não enviado" de "campo enviado como null".
+# Sem ela, não haveria como diferenciar um PATCH que não menciona o prazo de
+# um PATCH que pede explicitamente para apaga-lo.
 
 NAO_INFORMADO: Any = object()
 
@@ -31,7 +34,11 @@ class AlteracoesDaTarefa:
 
 
 class TarefaServico:
-    """Operações sobre as tarefas do usuário autenticado."""
+    """Operações sobre as tarefas do usuário autenticado.
+    Toda operação recebe o id de quem está pedindo. Isso não é desconfiança
+    exagerada: é a única forma de garantir que ninguém leia, altere ou apague
+    a tarefa de outra pessoa so por adivinhar um id.
+    """
 
     def __init__(self, tarefas: TarefaRepositorio) -> None:
         self._tarefas = tarefas
@@ -43,7 +50,13 @@ class TarefaServico:
         prioridade: PrioridadeTafera,
         prazo: date | None,
     ) -> Tarefa:
-        """Cria uma tarefa para o usuário autenticado."""
+        """Cria uma tarefa para o usuário autenticado.
+
+        A RN-02 (toda tarefa nasce pendente) e garantida pelo construtor da
+        'Tarefa'. A RN-04 (o dono existe) é garantida pela autenticação: o id
+        vem de um token conferido, não do corpo da requisição.
+        """
+
         tarefa = Tarefa(
             usuario_id=usuario_id,
             titulo=titulo,
@@ -52,12 +65,18 @@ class TarefaServico:
         )
         return self._tarefas.salvar(tarefa)
 
-    def listar(self, usuario_id: int) -> list[Tarefa]:
+    def listar(self, filtro: FiltroDeTarefas) -> PaginaDeTarefa:
         """Lista as tarefas do usuário autenticado."""
-        return self._tarefas.listar(usuario_id)
+        return self._tarefas.listar(filtro)
 
     def buscar(self, tarefa_id: int, usuario_id: int) -> Tarefa:
-        """Devolve uma tarefa do usuário."""
+        """Devolve uma tarefa do usuário.
+
+        Raises:
+        
+            TarefaNaoEncontrada: se nao existir tarefa com este id.
+            AcessoNaoAutorizado: se a tarefa for de outro usuário.
+        """
         tarefa = self._tarefas.buscar_por_id(tarefa_id)
 
         if tarefa is None:
@@ -74,7 +93,16 @@ class TarefaServico:
         usuario_id: int,
         alternacoes: AlteracoesDaTarefa,
     ) -> Tarefa:
-        """Aplica as alterações informadas e devolve a tarefa atualizada."""
+        """Aplica as alterações informadas e devolve a tarefa atualizada.
+        
+        A RN-03 não aparece aqui: a mudança de status é delegada a
+        `Tarefa.definir_status', que sabe concluir, reabrir e preservar a data
+        original. O serviço apenas encaminha a intenção.
+
+        Raises:
+            TarefaNaoEncontrada: se nao existir tarefa com este id.
+            AcessoNaoAutorizado: se a tarefa for de outro usuario.
+        """
         tarefa = self.buscar(tarefa_id, usuario_id)
 
         if alternacoes.informado("titulo"):
@@ -94,5 +122,10 @@ class TarefaServico:
         return self._tarefas.salvar(tarefa)
 
     def remover(self, tarefa_id: int, usuario_id: int) -> None:
-        """Remove a tarefa definitivamente."""
+        """Remove a tarefa definitivamente.
+
+        Raises:
+            TarefaNaoEncontrada: se nao existir tarefa com este id.
+            AcessoNaoAutorizado: se a tarefa for de outro usuario.
+        """
         self._tarefas.remover(self.buscar(tarefa_id, usuario_id))

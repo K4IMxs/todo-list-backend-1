@@ -1,13 +1,11 @@
 """Ponto de entrada: cria o app, registra as rotas e traduz erros em HTTP."""
-
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
-
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-
 from app.api.routers import tasks, usuario
 from app.core.config import obter_configuracao
 from app.core.exceptions import (
@@ -46,9 +44,22 @@ async def ciclo_de_vida(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Todo List API",
-    description="Backend do ToDo List - curso Desenvolvedor Full Stack (SENAC).",
-    version="0.10.0",
+    description=(
+        "Backend do ToDo List - curso Desenvolvedor Full Stack (SENAC)."
+        "Para usar as rotas protegidas: faça login em `POST /usuários/login`,"
+        "copie e cole o `acessToken` e cole no botão **Authorize**."
+    ),
+    version="0.11.0",
     lifespan=ciclo_de_vida,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=list(obter_configuracao().origens_permitidas),
+    allow_credentials=False, # o token vai no cabeçalho, não em cookie
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["X-Total-Count"],
 )
 
 
@@ -61,7 +72,7 @@ async def tratar_erro_de_dominio(
     codigo = next(
         (codigo for tipo, codigo in STATUS_POR_ERRO if isinstance(excecao, tipo)), 400
     )
-    return JSONResponse(status_code=codigo, content={"detail": excecao.mensagem})
+    return JSONResponse(status_code=codigo, content={"detail": excecao.mensagem}, headers=cabecalhos)
 
 
 def _mensagem_de_validacao(erro: dict[str, Any]) -> tuple[str, str]:
@@ -114,12 +125,8 @@ async def tratar_erro_de_validacao(
             "erros": erros,
         },
     )
-
-
 app.include_router(usuario.router)
 app.include_router(tasks.router)
-
-
 @app.get("/", tags=["Status"], summary="Verificar se a API está no ar")
 def raiz() -> dict[str, str]:
     """Confirma que a API está no ar e indica onde está a documentação."""

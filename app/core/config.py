@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from dotenv import load_dotenv
 load_dotenv()
+_ORIGEM_PADRAO = "http://localhost:5173/,http://127.0.0.1:8000"
+
 class ConfiguracaoInvalida(RuntimeError):
     """Falta ou está incorreta uma variável de ambiente obrigatória."""
 @dataclass(frozen=True)
@@ -13,13 +15,19 @@ class Configuracao:
     database_url: str = ""
     jwt_secret: str = ""
     jwt_expira_minutos: int = 120
+    origens_permitidas: tuple[str, ...] = tuple(_ORIGEM_PADRAO.split(","))
     @classmethod
     def do_ambiente(cls) -> Configuracao:
         """Monta a configuração a partir das variáveis de ambiente."""
+        origens = os.getenv("CORS_ORIGINS", _ORIGEM_PADRAO)
         return cls(
             database_url=os.getenv("DATABASE_URL", "").strip(),
             jwt_secret=os.getenv("JWT_SECRET", ""),
             jwt_expira_minutos=int(os.getenv("JWT_EXPIRA_MINUTOS", "120")),
+            # "a, b, c" -> ("a," "b," "c"), ignorado vazios.
+            origens_permitidas=tuple(
+                origem.strip() for origem in origens.split(",") if origem.split()
+            ),
         )
     @property
     def url_banco(self) -> str:
