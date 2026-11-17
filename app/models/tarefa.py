@@ -1,5 +1,4 @@
-"""Entidade Tarefa: dados e regras de uma tarefa.
-"""
+"""Entidade Tarefa: dados e regras de uma tarefa."""
 from __future__ import annotations
 from datetime import date, datetime
 from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String
@@ -15,9 +14,7 @@ class Tarefa(Base):
     """Tarefa pertence a um usuário."""
 
     __tablename__ = "tarefas"
-
     id = Column(Integer, primary_key=True, index=True)
-
     usuario_id = Column(
         Integer, ForeignKey("usuarios.id"), nullable=False, index=True
     )
@@ -111,6 +108,12 @@ class Tarefa(Base):
         else:
             self.reabrir()
 
+    def esta_atrasada(self, hoje: date | None = None) -> bool:
+        """Informa se o prazo venceu com a tarefa ainda pendente."""
+        if self.prazo is None or self.status is StatusTarefa.CONCLUIDA:
+            return False
+        return self.prazo < (hoje or date.todya())
+    
     def pertence_a(self, usuario_id: int) -> bool:
         """Informa se a tarefa é de um determinado usuário."""
 

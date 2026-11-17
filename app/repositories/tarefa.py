@@ -41,7 +41,7 @@ class TarefaRepositorio(RepositorioBase[Tarefa]):
             CampoOrdenacao.PRIORIDADE: self._ORDEM_POR_PRIORIDADE,
         }
         return colunas[campo]
-    def listar(self, filtro: FiltroDeTarefas) -> list[Tarefa]:
+    def listar(self, filtro: FiltroDeTarefas) -> PaginaDeTarefa:
         """Lista as tarefas de um usuario, das mais recentes para as mais antigas."""
         consulta = self._sessao.query(Tarefa).filter(
             Tarefa.usuario_id == filtro.usuario_id
@@ -57,9 +57,7 @@ class TarefaRepositorio(RepositorioBase[Tarefa]):
                 Tarefa.prazo.isnot(None), Tarefa.prazo <= filtro.prazo_ate
             )
         if filtro.busca:
-            # `icontains` = "contém, sem diferenciar maiúsculas" (ILIKE no
-            # PostgreSQL). `autoescape` faz `%` e `_` digitados pelo usuário
-            # serem procurados como texto, e não como curingas do LIKE.
+
             consulta = consulta.filter(
                 Tarefa.titulo.icontains(filtro.busca, autoescape=True)
             )
@@ -70,20 +68,17 @@ class TarefaRepositorio(RepositorioBase[Tarefa]):
         coluna = self._coluna_de_ordenacao(filtro.ordena_por)
         ordenacao = [coluna.desc() if filtro.ordem is Ordem.DESC else coluna.asc()]
         if filtro.ordena_por is CampoOrdenacao.PRAZO:
-            # Tarefa sem prazo vai sempre para o FIM, em qualquer sentido. Cada
-            # banco põe o NULL num lugar diferentes; este critério vem antes e 
-            # resolve igual em todos: 0 = tem prazo, 1 = sem prazo.
             ordenacao.insert(0, case((Tarefa.prazo.is_(None), 1), else_=0))
-            # Desempate pelo id: sem ele, tarefas com o mesmo valor (ex.: mesm
-            # prioridade) poderiam trocar de lugar entre página e outra.
             ordenacao.append(Tarefa.id.desc())
-
             tarefas = (
                 consulta.order_by(*ordenacao)
                 .offset(filtro.deslocamento)
                 .limit(filtro.limite)
                 .all()
             )
-            
-        return consulta.order_by(Tarefa.criado_em.desc(), Tarefa.id.desc()).all()
- 
+        return PaginaDeTarefa(tarefas=tarefas, total=total)
+    def todas_do_usuario(self, usuario_id: int) -> list[Tarefa]:
+        """Todas as tarefas de um usuário, sem filtro  nem limite (para o resumo)."""
+        return (
+            self._sessao.query(Tarefa).filter(Tarefa.usuario_id == usuario_id).all()
+        )
