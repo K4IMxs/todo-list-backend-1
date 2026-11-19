@@ -82,7 +82,7 @@ def listar_tasks(
         deslocamento=deslocamento,
     )
     pagina = servico.listar(filtro)
-    response.headers["X-Total-Count"] = str(len(pagina))
+    response.headers["X-Total-Count"] = str(pagina.total)
     return pagina.tarefas
 
 @router.get(
@@ -92,7 +92,7 @@ def listar_tasks(
 )
 def resumo_task(usuario: UsuarioAtual, servico: Servico) -> ResumoOut:
     """Total, pendentes, concluídas e atrasadas - os números da página Painel."""
-    return servico.resumo(usuario_id)
+    return servico.resumo(usuario.id)
 @router.get(
     "/{tarefa_id}",
     response_model=TarefaOut,

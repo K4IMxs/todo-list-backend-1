@@ -33,11 +33,11 @@ class AlteracoesDaTarefa:
         return getattr(self, campo) is not NAO_INFORMADO
 
 @dataclass(frozen=True)
-calss Resumo:
+class Resumo:
     """Os números do Painel de um usuário."""
 
     total: int
-    pendente: int
+    pendentes: int
     concluidas: int
     atrasadas: int
 
@@ -113,11 +113,12 @@ class TarefaServico:
         """Calcula os números do Painel: total, pendente, concluídas e atrasadas."""
         hoje = hoje or date.today()
         tarefas = self._tarefas .todas_do_usuario(usuario_id)
-        concluidas = sum(1 for t in tarefas is StatusTarefa.CONCLUIDA)
+        pendentes = sum(1 for t in tarefas if t.status is StatusTarefa.PENDENTE)
+        concluidas = sum(1 for t in tarefas if t.status is StatusTarefa.CONCLUIDA)
 
         return Resumo(
             total=len(tarefas),
-            pendentes=len(tarefas),
+            pendentes=pendentes,
             concluidas=concluidas,
             atrasadas=sum(1 for t in tarefas if t.esta_atrasada(hoje)),
         )

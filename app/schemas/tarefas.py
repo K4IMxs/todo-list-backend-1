@@ -48,7 +48,7 @@ class TarefaOut(EsquemaDeSaida):
 
 #---------------------------------------------------------------------------------------------------------- Resumo
 
-class ResumoOut
+class ResumoOut(EsquemaDeSaida):
 
     """Numeros do Painel, calculados no servidor.
 

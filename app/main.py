@@ -72,7 +72,7 @@ async def tratar_erro_de_dominio(
     codigo = next(
         (codigo for tipo, codigo in STATUS_POR_ERRO if isinstance(excecao, tipo)), 400
     )
-    return JSONResponse(status_code=codigo, content={"detail": excecao.mensagem}, headers=cabecalhos)
+    return JSONResponse(status_code=codigo, content={"detail": excecao.mensagem})
 
 
 def _mensagem_de_validacao(erro: dict[str, Any]) -> tuple[str, str]:
