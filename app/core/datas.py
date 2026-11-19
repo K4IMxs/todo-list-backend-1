@@ -1,4 +1,4 @@
-"""Utilitários de data e hora usados em mais de ums chamada."""
+"""Utilitarios de data e hora usados em mais de uma camada."""
 
 from datetime import datetime, timezone
 

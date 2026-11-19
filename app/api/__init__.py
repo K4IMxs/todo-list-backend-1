@@ -1,1 +1,1 @@
-"""Chamada HTTP: rotas e montagem das dependências injetadas."""
+"""Camada HTTP: rotas e montagem das dependências injetadas."""

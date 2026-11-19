@@ -1,30 +1,24 @@
 """Endpoints de tarefas: todos exigem login."""
- 
 from datetime import date
 from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Response, status
 from app.api.dependencies import UsuarioAtual, obter_tarefa_servico
-from app.models.enums import CampoOrdenacao, Ordem, PrioridadeTafera, StatusTarefa
+from app.models.enums import CampoOrdenacao, Ordem, PrioridadeTarefa, StatusTarefa
 from app.repositories import FiltroDeTarefas
 from app.schemas import ResumoOut, TarefaCreate, TarefaOut, TarefaUpdate
 from app.services import AlteracoesDaTarefa, TarefaServico
 router = APIRouter(
-    prefix="/tarefas",
+    prefix="/tarefas", 
     tags=["Tarefas"],
     responses={401: {"description": "Sem token, ou token inválido/expirado."}},
     )
 Servico = Annotated[TarefaServico, Depends(obter_tarefa_servico)]
- 
 _RESPOSTAS_DE_UMA_TAREFA = {
     403: {"description": "A tarefa pertence a outro usuário."},
     404: {"description": "Tarefa não encontrada."},
 }
 def _montar_alteracoes(dados: TarefaUpdate) -> AlteracoesDaTarefa:
-    """Converte o corpo o PATCH em alterações de domínio.
-    exclude_unset=True' devolve apenas os campos que o cliente realmente
-    enviou. Os ausentes ficam com a sentinela NAO_INFORMADO`, o que permite
-    distinguir "nao mencionei o prazo" de "quero apagar o prazo".
-    """
+    """Converte o corpo o PATCH em alterações de domínio."""
     return AlteracoesDaTarefa(**dados.model_dump(exclude_unset=True))
 
 @router.post(
@@ -39,7 +33,7 @@ def criar_task(dados: TarefaCreate, usuario: UsuarioAtual, servico: Servico) -> 
         usuario_id=usuario.id,
         titulo=dados.titulo,
         prioridade=dados.prioridade,
-        prazo=dados.prazo,
+        prazo=dados.prazo
     )
 
 @router.get(
@@ -47,16 +41,15 @@ def criar_task(dados: TarefaCreate, usuario: UsuarioAtual, servico: Servico) -> 
     response_model=list[TarefaOut],
     summary="Listar tarefas do usuário logado"
 )
-
 def listar_tasks(
-    usuario: UsuarioAtual,
-    servico: Servico,
+    usuario: UsuarioAtual, 
+    servico: Servico, 
     response: Response,
     status_tarefa: Annotated[StatusTarefa | None, Query(alias="status")] = None,
-    prioridade: Annotated[PrioridadeTafera | None, Query()] = None,
+    prioridade: Annotated[PrioridadeTarefa | None, Query()] = None,
     prazo_ate: Annotated[
         date | None,
-        Query(alias="prazo", description="Somente tarefas com prazo até esta data"),
+        Query(alias="prazoAte", description="Somente tarefas com prazo até esta data"),
     ] = None,
     busca: Annotated[
         str | None,
@@ -65,8 +58,8 @@ def listar_tasks(
     ordenar_por: Annotated[
         CampoOrdenacao, Query(alias="ordenarPor")
     ] = CampoOrdenacao.CRIADO_EM,
-    ordem: Annotated [Ordem, Query()] = Ordem.DESC,
-    limite: Annotated [int, Query(ge=1, le=1000, alias="limit")] = 100,
+    ordem: Annotated[Ordem, Query()] = Ordem.DESC,
+    limite: Annotated[int, Query(ge=1, le=1000, alias="limit")] = 100,
     deslocamento: Annotated[int, Query(ge=0, alias="offset")] = 0,
 ) -> list[TarefaOut]:
     """Lista as tarefas do usuário logado, com filtros opcionais."""
@@ -76,7 +69,7 @@ def listar_tasks(
         prioridade=prioridade,
         prazo_ate=prazo_ate,
         busca=(busca or "").strip() or None,
-        ordena_por=ordenar_por,
+        ordenar_por=ordenar_por,
         ordem=ordem,
         limite=limite,
         deslocamento=deslocamento,
@@ -84,13 +77,12 @@ def listar_tasks(
     pagina = servico.listar(filtro)
     response.headers["X-Total-Count"] = str(pagina.total)
     return pagina.tarefas
-
 @router.get(
     "/resumo",
     response_model=ResumoOut,
     summary="Resumo para o Painel",
 )
-def resumo_task(usuario: UsuarioAtual, servico: Servico) -> ResumoOut:
+def resumo_tasks(usuario: UsuarioAtual, servico: Servico) -> ResumoOut:
     """Total, pendentes, concluídas e atrasadas - os números da página Painel."""
     return servico.resumo(usuario.id)
 @router.get(
@@ -107,12 +99,12 @@ def buscar_task(tarefa_id: int, usuario: UsuarioAtual, servico: Servico) -> Tare
     response_model=TarefaOut,
     summary="Atualizar tarefa",
     responses=_RESPOSTAS_DE_UMA_TAREFA,)
- 
+
 def atualizar_task(
     tarefa_id: int, dados: TarefaUpdate, usuario: UsuarioAtual, servico: Servico
 ) -> TarefaOut:
     """Atualiza parcialmente uma tarefa.
-    quando o status muda, a data de conclusão é ajustada pela própria
+    quando o status muda, a data de conclusão é ajustada pela própria 
     tarefa, conforme a RN-03.
     """
     return servico.atualizar(tarefa_id, usuario.id, _montar_alteracoes(dados))
@@ -126,4 +118,3 @@ def remover_task(tarefa_id: int, usuario: UsuarioAtual, servico: Servico) -> Res
     """Remove uma tarefa definitivamente."""
     servico.remover(tarefa_id, usuario.id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
- 
